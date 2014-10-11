@@ -41,5 +41,5 @@ module.exports = function (grunt) {
 
     grunt.registerTask('test', ['jshint', 'karma']);
     grunt.registerTask('build', ['test', 'uglify']);
-    grunt.registerTask('travis', ['test'/*, 'coveralls'*/]);
+    grunt.registerTask('travis', ['test', 'coveralls']);
 };
