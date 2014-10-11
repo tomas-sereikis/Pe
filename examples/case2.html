@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+    <head lang="en">
+        <meta charset="UTF-8">
+        <title></title>
+        <script src="../dist/pe.min.js"></script>
+        <script>
+            // this is just a mock
+            function makeHttpRequest (params) {
+                return {
+                    // success method mock
+                    success: function (callback) {
+                        // give some timeout like in read HTTP request
+                        setTimeout(function () {
+                            switch (params) {
+                                case '54.690543,25.279189':
+                                    callback('Some Address In Vilnius 1');
+                                    break;
+                                case '54.692789,25.279831':
+                                    callback('Some Address In Vilnius 2');
+                                    break;
+                                case '54.693021,25.273138':
+                                    callback('Some Address In Vilnius 3');
+                                    break;
+                                default:
+                            }
+                        }, 100);
+                    }
+                };
+            }
+        </script>
+    </head>
+    <body>
+        <div class="marker" data-coordinates="54.690543,25.279189"></div>
+        <div class="marker" data-coordinates="54.692789,25.279831"></div>
+        <div class="marker" data-coordinates="54.693021,25.273138"></div>
+
+        <script>
+            var stack = new Pe()
+                .evaluate(function (element) {
+                    // this will be async request
+                    // because we only what to make one request per time
+                    // when called async this method will only finish and continue to
+                    // next ones then done will be called
+                    var done = this.async();
+                    // coordinates from dom element
+                        console.log(element);
+                    var coordinates = element.dataset.coordinates;
+                    // lest say we make http request with element coordinates
+                    makeHttpRequest(coordinates)
+                        .success(function (response) {
+                            // attach geo codded address and marker title
+                            element.title = response;
+                            // this evaluation is done continue to next one
+                            done();
+                        });
+                });
+
+            var markers = document.querySelectorAll('.marker');
+            [].forEach.call(markers, function (element) {
+                stack.push(element);
+            });
+        </script>
+    </body>
+</html>

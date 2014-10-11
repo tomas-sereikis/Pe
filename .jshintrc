@@ -1,0 +1,17 @@
+{
+    "undef": true,
+    "unused": true,
+    "immed": true,
+    "latedef": true,
+    "newcap": true,
+    "noarg": true,
+    "sub": true,
+    "curly": true,
+    "boss": true,
+    "eqeqeq": true,
+    "eqnull": false,
+    "browser": true,
+    "globals": {
+        "angular": true
+    }
+}

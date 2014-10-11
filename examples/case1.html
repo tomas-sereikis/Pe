@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+    <head lang="en">
+        <meta charset="UTF-8">
+        <title></title>
+        <script src="../dist/pe.min.js"></script>
+        <script>
+            // this is just a mock
+            function makeHttpRequest () {
+                return {
+                    // success method mock
+                    success: function (callback) {
+                        // give some timeout like in read HTTP request
+                        setTimeout(function () {
+                            callback({
+                                test1: 'Test 1',
+                                test2: 'Test 2',
+                                test3: 'Test 3',
+                                test4: 'Test 4'
+                            });
+                        }, 100);
+                    }
+                };
+            }
+        </script>
+    </head>
+    <body>
+        <ul id="translate">
+            <li data-translate="test1"></li>
+            <li data-translate="test2"></li>
+            <li data-translate="test3"></li>
+        </ul>
+
+        <script>
+            var stack = new Pe();
+            var translate = document.querySelector('#translate');
+            var elements = translate.querySelectorAll('[data-translate]');
+
+            [].forEach.call(elements, function (element) {
+                // push element to stack
+                stack.push(element);
+            });
+
+            // lest say we have http request implementation like this
+            makeHttpRequest()
+                .success(function (translations) {
+                    // on success we what get translation and add it as element text
+                    // add stack evaluation callback
+                    // this callback will be repeated on every item
+                    // which is or will be pushed to stack
+                    stack.evaluate(function (element) {
+                        var translate = element.dataset.translate;
+                        // update element text content
+                        element.textContent = translations[translate];
+                    });
+
+                    // and lest say we what to add more element which
+                    // needs to be translated too
+                    var element = document.createElement('li');
+                    element.dataset.translate = 'test4';
+                    translate.appendChild(element);
+                    // push this element to stack too, even if evaluation was defined
+                    // and other elements was translated already
+                    // its no deference then the stack content is defined
+                    // on when stack evaluation or evaluations are defined
+                    stack.push(element);
+
+                    // and lets say for debug we need to console log all elements
+                    // which are pushed to stack
+                    // so we just add one more evaluation callback
+                    stack.evaluate(function (element) {
+                        // because this stack was defined later
+                        // it will always be called then the previous jobs are finished
+                        // so this only will be called then element will have translation
+                        // so we can log element and its translation
+                        console.log(element, element.textContent);
+                    });
+                });
+        </script>
+    </body>
+</html>

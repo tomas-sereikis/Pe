@@ -1,0 +1,25 @@
+{
+    "name": "pe",
+    "version": "0.0.1",
+    "homepage": "https://github.com/Tomas-Sereikis/Pe",
+    "authors": [
+        "Tomas-Sereikis <tomas.sereikis@gmail.com>"
+    ],
+    "description": "Promise Evaluation Library",
+    "main": "src/pe.js",
+    "keywords": [
+        "pe",
+        "promiseevaluation",
+        "queue",
+        "worker",
+        "async"
+    ],
+    "license": "MIT",
+    "ignore": [
+        "**/.*",
+        "node_modules",
+        "bower_components",
+        "test",
+        "tests"
+    ]
+}
