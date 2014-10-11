@@ -4,6 +4,8 @@
 [![devDependency Status](https://david-dm.org/Tomas-Sereikis/Pe/dev-status.svg)](https://david-dm.org/Tomas-Sereikis/Pe#info=devDependencies)
 [![Coverage Status](https://coveralls.io/repos/Tomas-Sereikis/Pe/badge.png?branch=master)](https://coveralls.io/r/Tomas-Sereikis/Pe?branch=master)
 
+`bower install -g pe`
+
 JavaScript Pe method is used for jobs queue list creation when the actual job or jobs are not able to be started, for example if we still need some data which will be provided in the future.
 
 Pe is very light, it has full test coverage and its only the beginning of it! So if you have some ideas what should be implemented to it feel free to offer.
