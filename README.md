@@ -1,5 +1,7 @@
 # Pe (Promise Evaluation)
 
+[![Build Status](https://travis-ci.org/Tomas-Sereikis/Pe.svg)](https://travis-ci.org/Tomas-Sereikis/Pe)
+
 JavaScript Pe method is used for jobs queue list creation when the actual job or jobs are not able to be started, for example if we still need some data which will be provided in the future.
 
 Pe is very light, it has full test coverage and its only the beginning of it! So if you have some ideas what should be implemented to it feel free to offer.
