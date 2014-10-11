@@ -56,8 +56,6 @@ makeHttpRequest()
         translate.appendChild(element);
         // push this element to stack too, even if evaluation was defined
         // and other elements was translated already
-        // its no deference then the stack content is defined
-        // on when stack evaluation or evaluations are defined
         stack.push(element);
         
         // and lets say for debug we need to console log all elements 
@@ -65,8 +63,8 @@ makeHttpRequest()
         // so we just add one more evaluation callback
         stack.evaluate(function (element) {
             // because this stack was defined later
-            // it will always be called then the previous jobs are finished
-            // so this only will be called then element will have translation
+            // it will always be called when the previous jobs are finished
+            // so this only will be called when element will have translation
             // so we can log element and its translation
             console.log(element, element.textContent);
         });
