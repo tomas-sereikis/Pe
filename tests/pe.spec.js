@@ -191,6 +191,74 @@ describe('Pe', function () {
         expect(stack.isLocked()).toBeTruthy();
     });
 
+    it('should lock stack after sync finish method', function () {
+        var stack = new Pe();
+        var response = [];
+        var called = false;
+
+        stack
+            .push(1)
+            .push(2)
+            .evaluate(function (num) {
+                response.push(num);
+            })
+            .push(3)
+            .push(4)
+            .finish(function () {
+                called = true;
+            });
+
+        expect(response).toEqual([1, 2, 3, 4]);
+        expect(called).toBeTruthy();
+
+        expect(function () {
+            stack.push(5);
+        }).toThrow();
+
+        expect(function () {
+            stack.evaluate(function () {
+                // ...
+            });
+        }).toThrow();
+
+        expect(stack.isClosed()).toBeTruthy();
+    });
+
+    it('should lock stack after async finish method', function (done) {
+        var stack = new Pe();
+        var response = [];
+        var called = false;
+
+        stack
+            .push(1)
+            .push(2)
+            .evaluate(function (num) {
+                var done = this.async();
+                setTimeout(function () {
+                    response.push(num);
+                    done();
+                }, 10);
+            })
+            .push(3)
+            .push(4)
+            .finish(function () {
+                expect(response).toEqual([1, 2, 3, 4]);
+                done();
+            });
+
+        expect(stack.isClosed()).toBeTruthy();
+
+        expect(function () {
+            stack.push(5);
+        }).toThrow();
+
+        expect(function () {
+            stack.evaluate(function () {
+                // ...
+            });
+        }).toThrow();
+    });
+
     it('should check if noConflict Pe is working', function () {
         var $Pe = Pe.noConflict();
         var stack = new $Pe();

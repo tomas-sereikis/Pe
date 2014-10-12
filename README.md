@@ -139,6 +139,44 @@ After HTML Content Evaluation
 </div>
 ```
 
+###### Case 3
+
+We are making list of HTTP requests and after all of them done we what to save some notice or lest say finish stack and preform some actions.
+
+```javascript
+var resolved = {};
+var stack = new Pe()
+    // note that only one item per time is resolving
+    // after done callback triggers queue goes to the next one
+    .evaluate(function (content) {
+        // get async done method
+        var done = this.async();
+        // make http request for content resolve
+        makeHttpRequest(content)
+            .success(function (response) {
+                resolved[content] = response;
+            });
+    });
+
+stack
+    .push('resolve1')
+    .push('resolve2')
+    .push('resolve3')
+    .finish(function () {
+        // this will be called when call stack items will be 
+        // resolved by HTTP request
+        console.log(resolved);
+    });
+    
+// note then this stack is finished and you can not add more items 
+// or evaluations to it!
+
+// you can check the closed status 
+console.log(stack.isClosed()); // true
+// if you try to push items or add evaluations 
+// you will get {StackClosedError}
+```
+
 Have questions if `Pe` would work in your case? Ask!
 
 Having conflicts with the name `Pe`?
