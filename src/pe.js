@@ -35,16 +35,31 @@
      * @param {Function} fn
      * @param {Array} params
      * @param {Function} done
+     * @param {Function} fail
      */
-    var triggerEvaluationCallback = function (fn, params, done) {
+    var triggerEvaluationCallback = function (fn, params, done, fail) {
         // set default async off
         var async = false;
+        var canceled = false;
+
         // evaluation callback scope
         var scope = {
             async: function () {
                 // set method as async
                 async = true;
-                return done;
+                return function () {
+                    // make sure we do not call double
+                    // if evaluation is cancelled do not call done event
+                    if (canceled === false) {
+                        done();
+                    }
+                };
+            },
+
+            fail: function (error) {
+                // mask this task as canceled
+                canceled = true;
+                fail(error);
             }
         };
 
@@ -52,7 +67,7 @@
         fn.apply(scope, params);
 
         // if method is not async then call done callback
-        if (!async) {
+        if (!async && canceled === false) {
             done();
         }
     };
@@ -79,6 +94,37 @@
     };
 
     /**
+     * @scope {Pe}
+     */
+    var triggerQueuedWorkers = function () {
+        // worker list is empty so we can trigger all queued done triggers
+        while (this.triggers.length) {
+            // shift and trigger
+            this.triggers.shift()();
+        }
+    };
+
+    /**
+     * @scope {Pe}
+     */
+    var teaseNextWorker = function (done) {
+        // lock worker
+        this.locked = false;
+        // go to next worker
+        teaseWorker.call(this, done);
+    };
+
+    /**
+     * @param {*} error
+     * @scope {Pe}
+     */
+    var teaseFailsListeners = function (error) {
+        this.fails.forEach(function (fail) {
+            fail(error);
+        });
+    };
+
+    /**
      * @param {Function} [done]
      * @scope {Pe}
      */
@@ -100,40 +146,42 @@
 
             // check if collection is not empty
             if (collection.length > 0) {
+                /**
+                 * @type {{evaluation: Function, params: Array}}
+                 */
                 var shifted = collection.shift();
+
                 // we need to save reference so self
                 var that = this;
-
-                // trigger evaluation
-                triggerEvaluationCallback(
-                    // evaluation callback
-                    shifted.evaluation,
-                    // evaluation callback params
-                    shifted.params,
-                    // on evaluation done callback
-                    function () {
-                        // unlock worker
-                        that.locked = false;
-                        // process to next queue item
-                        teaseWorker.call(that, done);
-                    }
-                );
+                try {
+                    // trigger evaluation
+                    triggerEvaluationCallback(
+                        shifted.evaluation,
+                        shifted.params,
+                        // on success
+                        function () {
+                            teaseNextWorker.call(that, done);
+                        },
+                        // on fail
+                        function (error) {
+                            teaseFailsListeners.call(that, error);
+                            teaseNextWorker.call(that, done);
+                        }
+                    );
+                } catch (e) {
+                    teaseFailsListeners.call(this, e);
+                    teaseNextWorker.call(this, done);
+                }
             } else {
                 this.queue.shift();
-                // unlock worker
-                this.locked = false;
-                teaseWorker.call(this, done);
+                teaseNextWorker.call(this, done);
             }
         } else {
             // unlock worker
             this.locked = false;
-            // trigger done callback
-            done();
-            // worker list is empty so we can trigger all queued done triggers
-            while (this.triggers.length) {
-                // shift and trigger
-                this.triggers.shift()();
-            }
+
+            done.call(root);
+            triggerQueuedWorkers.call(this);
         }
     };
 
@@ -146,7 +194,6 @@
     var pushNotEmpty = function (to, collection) {
         if (collection.length > 0) {
             to.push(collection);
-
             return true;
         }
 
@@ -180,7 +227,21 @@
         this.triggers = [];
         // closed stack becomes after adding finish method
         this.closed = false;
+        // list of fails reporter
+        this.fails = [];
     }
+
+    /**
+     * @param {...*} data
+     */
+    Pe.stackFromArray = function () {
+        var stack = new Pe();
+        [].forEach.call(arguments, function (item) {
+            stack.push(item);
+        });
+
+        return stack;
+    };
 
     Pe.prototype = {
         /**
@@ -242,6 +303,23 @@
                 teaseWorker.call(this, function () {
                     // this callback if empty for future purposes
                 });
+            }
+
+            return this;
+        },
+
+        /**
+         * Listener for fails
+         * When evaluation fails this method callback fn will be called
+         *
+         * @param {Function} fn
+         * @returns {Pe}
+         */
+        'catch': function (fn) {
+            validateCallback(fn);
+            // check if this callback is not pushed already
+            if (this.fails.indexOf(fn) === -1) {
+                this.fails.push(fn);
             }
 
             return this;

@@ -177,8 +177,37 @@ console.log(stack.isClosed()); // true
 // you will get {StackClosedError}
 ```
 
+###### Case 4
+
+What to preform custom actions if worker fails? You can use it by `throw ...` or use `this.fail(...)` method.
+
+```javascript
+// use fast way of stack creation
+Pe.stackFromArray(1, 3, 5, 6)
+    // make sure fail is defined before evaluate tasks
+    .catch(function (number) {
+        console.log(number + ' is even!');
+    })
+    .evaluate(function (number) {
+        // save callback reference of fail for async task
+        var fail = this.fail;
+        if (number % 2 === 0) {
+            throw number;
+            // or use alternative for async tasks
+            fail(number);
+        }
+        
+        // ...
+    });
+```
+
 Have questions if `Pe` would work in your case? Ask!
 
+### Changes
+
+* 0.0.3 - added `catch()` method for evaluations that fail, added `Pe.stackFromArray(...)` which created Pe instance form arguments.
+
+### noConflict
 Having conflicts with the name `Pe`?
 ```javascript
 var PromiseEvaluation = Pe.noConflict();

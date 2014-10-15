@@ -227,7 +227,6 @@ describe('Pe', function () {
     it('should lock stack after async finish method', function (done) {
         var stack = new Pe();
         var response = [];
-        var called = false;
 
         stack
             .push(1)
@@ -257,6 +256,99 @@ describe('Pe', function () {
                 // ...
             });
         }).toThrow();
+    });
+
+    it('should use fast stack method', function () {
+        var response = [];
+        Pe.stackFromArray(1, [2], [3, 4])
+            .evaluate(function () {
+                response.push([].slice.call(arguments));
+            });
+
+        expect(response).toEqual([[1], [[2]], [[3, 4]]]);
+    });
+
+    it('should fail from one item of list', function () {
+        var response = [];
+        var fails = [];
+
+        Pe.stackFromArray(1, 2, 3, 4)
+            .catch(function (e) {
+                fails.push(e);
+            })
+            .evaluate(function (num) {
+                if (num !== 2) {
+                    response.push(num);
+                } else {
+                    throw num;
+                }
+            });
+
+        expect(response).toEqual([1, 3, 4]);
+        expect(fails).toEqual([2]);
+    });
+
+    it('should fail from async task', function (done) {
+        var response = [];
+        var fails = [];
+
+        Pe.stackFromArray(1, 2, 3, 4)
+            .catch(function (e) {
+                fails.push(e);
+            })
+            .evaluate(function (num) {
+                var done = this.async();
+                var fail = this.fail;
+
+                // async
+                setTimeout(function () {
+                    if (num !== 2) {
+                        response.push(num);
+                    } else {
+                        fail(num);
+                    }
+
+                    done();
+                }, 10);
+            })
+            .finish(function () {
+                expect(response).toEqual([1, 3, 4]);
+                expect(fails).toEqual([2]);
+
+                done();
+            });
+    });
+
+    it('should continue to next worker on async task fail', function (done) {
+        var response = [];
+        var fails = [];
+
+        Pe.stackFromArray(1, 2)
+            .catch(function (e) {
+                fails.push(e);
+            })
+            .evaluate(function (num) {
+                var done = this.async();
+                var fail = this.fail;
+
+                // async
+                setTimeout(function () {
+                    if (num !== 1) {
+                        response.push(num);
+                        // call only on success
+                        done();
+                    } else {
+                        // do not call done here
+                        fail(num);
+                    }
+                }, 10);
+            })
+            .finish(function () {
+                expect(response).toEqual([2]);
+                expect(fails).toEqual([1]);
+
+                done();
+            });
     });
 
     it('should check if noConflict Pe is working', function () {
