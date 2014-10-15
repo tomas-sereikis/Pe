@@ -155,6 +155,7 @@ var stack = new Pe()
         makeHttpRequest(content)
             .success(function (response) {
                 resolved[content] = response;
+                done();
             });
     });
 
