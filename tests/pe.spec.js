@@ -20,6 +20,40 @@ describe('Pe', function () {
         expect(function () { stack.evaluate([]); }).toThrow();
     });
 
+    it('should check if $stack params is writable', function () {
+        var stack = new Pe();
+        stack.$stack = 1;
+        expect(stack.$stack).not.toBe(1);
+    });
+
+    it('should check if $workers params is writable', function () {
+        var stack = new Pe();
+        stack.$workers = 1;
+        expect(stack.$workers).not.toBe(1);
+    });
+
+    it('should check if $processing params is writable', function () {
+        var stack = new Pe();
+        stack.$processing = 1;
+        expect(stack.$processing).not.toBe(1);
+    });
+
+    it('should check if $callbacks params is writable', function () {
+        var stack = new Pe();
+        stack.$callbacks = 1;
+        expect(stack.$callbacks).not.toBe(1);
+    });
+
+    it('should check if $closed can set not boolean variable', function () {
+        var stack = new Pe();
+        expect(function () { stack.$closed = 1; }).toThrow();
+    });
+
+    it('should check if $locked can set not boolean variable', function () {
+        var stack = new Pe();
+        expect(function () { stack.$locked = 1; }).toThrow();
+    });
+
     it('should evaluate content synced', function () {
         var stack = new Pe();
         var results = 0;
@@ -273,7 +307,7 @@ describe('Pe', function () {
         var fails = [];
 
         Pe.stackFromArray(1, 2, 3, 4)
-            .catch(function (e) {
+            .on.fail(function (e) {
                 fails.push(e);
             })
             .evaluate(function (num) {
@@ -288,12 +322,46 @@ describe('Pe', function () {
         expect(fails).toEqual([2]);
     });
 
+    it('should check if deprecated is still working', function () {
+        var response = [];
+
+        Pe.stackFromArray(1, 2)
+            .catch(function (num) {
+                response.push(num);
+            })
+            .evaluate(function (num) {
+                if (num === 2) {
+                    throw num;
+                }
+            });
+
+        expect(response).toEqual([2]);
+    });
+
+    it('should not create two the same fail listeners', function () {
+        var response = [];
+        var onFail = function (num) {
+            response.push(num);
+        };
+
+        Pe.stackFromArray(1, 2)
+            .on.fail(onFail)
+            .on.fail(onFail)
+            .evaluate(function (num) {
+                if (num === 2) {
+                    throw num;
+                }
+            });
+
+        expect(response).toEqual([2]);
+    });
+
     it('should fail from async task', function (done) {
         var response = [];
         var fails = [];
 
         Pe.stackFromArray(1, 2, 3, 4)
-            .catch(function (e) {
+            .on.fail(function (e) {
                 fails.push(e);
             })
             .evaluate(function (num) {
@@ -324,7 +392,7 @@ describe('Pe', function () {
         var fails = [];
 
         Pe.stackFromArray(1, 2)
-            .catch(function (e) {
+            .on.fail(function (e) {
                 fails.push(e);
             })
             .evaluate(function (num) {

@@ -111,7 +111,7 @@ var stack = new Pe()
         makeHttpRequest(coordinates)
             .success(function (response) {
                 // attach geo codded address and marker title
-                element.title = response;
+                element.textContent = response;
                 // this evaluation is done continue to next one
                 done();
             });
@@ -125,17 +125,14 @@ var markers = document.querySelectorAll('.marker');
 
 After HTML Content Evaluation
 ```html
-<div class="marker" 
-     data-coordinates="54.690543,25.279189" 
-     title="Some Address In Vilnius 1">
+<div class="marker" data-coordinates="54.690543,25.279189">
+    Some Address In Vilnius 1
 </div> 
-<div class="marker" 
-     data-coordinates="54.692789,25.279831"
-     title="Some Address In Vilnius 2">
+<div class="marker" data-coordinates="54.692789,25.279831">
+    Some Address In Vilnius 2
 </div>
-<div class="marker" 
-     data-coordinates="54.693021,25.273138"
-     title="Some Address In Vilnius 3">
+<div class="marker" data-coordinates="54.693021,25.273138">
+    Some Address In Vilnius 3
 </div>
 ```
 
@@ -185,8 +182,10 @@ What to preform custom actions if worker fails? You can use it by `throw ...` or
 ```javascript
 // use fast way of stack creation
 Pe.stackFromArray(1, 3, 5, 6)
-    // make sure fail is defined before evaluate tasks
-    .catch(function (number) {
+    // define on fail listener before any evaluator
+    // keep in mind that you only need one on fail 
+    // listener for multiple evaluators
+    .on.fail(function (number) {
         console.log(number + ' is even!');
     })
     .evaluate(function (number) {
@@ -204,9 +203,16 @@ Pe.stackFromArray(1, 3, 5, 6)
 
 Have questions if `Pe` would work in your case? Ask!
 
-### Changes
+### Todo
+* Integrate web worker as a evaluation worker. Method implementation example `.thead.evaluate(function () { ...`
+* Enable set count of active workers. This will allow to run more then one worker per time. This will be handy when you will use `.thead.evaluate(...` web workers to be enabled to work with more then one web worker per time.
+* Integrate job done reporter usually will be used for web worker jobs e.g. `.on.done(function (arguments...) { ...` and so we can report arguments to on done method by just returning something from evaluator or passing some content to async done callback.
+* Integrate async worker call. Now workers is called synced so if you do not move your worker callback content async it will lock your frame. Method call implementation `.async.evaluate(function () { ...`
 
-* 0.0.3 - added `catch()` method for evaluations that fail, added `Pe.stackFromArray(...)` which created Pe instance form arguments.
+### Changes
+* **0.0.4** - code refactoring, method `catch()` is deprecated use `.on.fail()` instead. README todo added.
+* **0.0.3** - added `catch()` method for evaluations that fail, added `Pe.stackFromArray(...)` which created Pe instance form arguments.
+* **0.0.2** - added `finish()` method.
 
 ### noConflict
 Having conflicts with the name `Pe`?

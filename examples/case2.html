@@ -49,7 +49,7 @@
                     makeHttpRequest(coordinates)
                         .success(function (response) {
                             // attach geo codded address and marker title
-                            element.title = response;
+                            element.textContent = response;
                             // this evaluation is done continue to next one
                             done();
                         });

@@ -9,7 +9,6 @@
     StackClosedError.prototype = new Error();
 
     /**
-     * Checks if passed param is Function type
      * @param {Function} fn
      * @throw {TypeError}
      */
@@ -21,23 +20,11 @@
     };
 
     /**
-     * Checks if stack if closed
-     * @scope {Pe}
-     * @throw {StackClosedError}
-     */
-    var validateStackClosed = function () {
-        if (this.closed) {
-            throw new StackClosedError();
-        }
-    };
-
-    /**
-     * @param {Function} fn
-     * @param {Array} params
+     * @param {{worker: Function, params: Array}} process
      * @param {Function} done
      * @param {Function} fail
      */
-    var triggerEvaluationCallback = function (fn, params, done, fail) {
+    var triggerWorkerProcess = function (process, done, fail) {
         // set default async off
         var async = false;
         var canceled = false;
@@ -64,7 +51,7 @@
         };
 
         // apply params to evaluation callback
-        fn.apply(scope, params);
+        process.worker.apply(scope, process.params);
 
         // if method is not async then call done callback
         if (!async && canceled === false) {
@@ -73,136 +60,225 @@
     };
 
     /**
-     * @param {number} index
-     * @scope {Pe}
-     * @returns {{evaluation: *, params: *}[]}
+     * @param {Pe} pe
+     * @param {number} number
+     * @returns {{worker: Function, params: Array}[]}
      */
-    var makeEvaluationCollection = function (index) {
+    var createJobsCollection = function (pe, number) {
         var collection = [];
-        for (var i = 0; i < this.stack.length; i++) {
-            var stack = this.stack[i];
-            // get progress index of current stack
-            var process = typeof stack.process === 'undefined' ? -1 : stack.process;
-            // check if evaluation was made for this stack
-            if (process < index) {
-                collection.push({evaluation: this.evaluations[index], params: this.stack[i].params});
-                stack.process = index;
+
+        // check all stack items that are not processed with this worker
+        pe.$stack.forEach(function (stack) {
+            // get worker process position
+            var position = typeof stack.position === 'undefined' ? -1 : stack.position;
+            // check if this stack is processed
+            if (position < number) {
+                // set that this worker is in queue
+                stack.position = number;
+                // push to collection worker container and worker params
+                collection.push({
+                    worker: pe.$workers[number],
+                    params: stack.params
+                });
             }
-        }
+        });
 
         return collection;
     };
 
     /**
-     * @scope {Pe}
+     * @param {Pe} pe
      */
-    var triggerQueuedWorkers = function () {
-        // worker list is empty so we can trigger all queued done triggers
-        while (this.triggers.length) {
-            // shift and trigger
-            this.triggers.shift()();
-        }
+    var createJobsCollectionAll = function (pe) {
+        // create jobs collection for every worker
+        pe.$workers.forEach(function (worker, index) {
+            mergeProcessingQueue(pe, createJobsCollection(pe, index));
+        });
     };
 
     /**
-     * @scope {Pe}
+     * @param {Pe} pe
+     * @param {Function} done
      */
-    var teaseNextWorker = function (done) {
+    var triggerNextWorker = function (pe, done) {
         // lock worker
-        this.locked = false;
+        unlockStack(pe);
         // go to next worker
-        teaseWorker.call(this, done);
+        teaseWorker(pe, done);
     };
 
     /**
+     * @param {Pe} pe
      * @param {*} error
-     * @scope {Pe}
      */
-    var teaseFailsListeners = function (error) {
-        this.fails.forEach(function (fail) {
+    var triggerFailsListeners = function (pe, error) {
+        pe.$fails.forEach(function (fail) {
             fail(error);
         });
     };
 
     /**
-     * @param {Function} [done]
-     * @scope {Pe}
+     * @param {Pe} pe
+     * @param {Function} callback
      */
-    var teaseWorker = function (done) {
-        // check if worker is not locked
-        // locked means that it is currently awake and working
-        if (this.isLocked()) {
-            // save callback for later trigger
-            this.triggers.push(done);
-            return;
-        }
-
-        // check if queue is not empty
-        if (this.queue.length > 0) {
-            // lock worker
-            this.locked = true;
-            // get first collection
-            var collection = this.queue[0];
-
-            // check if collection is not empty
-            if (collection.length > 0) {
-                /**
-                 * @type {{evaluation: Function, params: Array}}
-                 */
-                var shifted = collection.shift();
-
-                // we need to save reference so self
-                var that = this;
-                try {
-                    // trigger evaluation
-                    triggerEvaluationCallback(
-                        shifted.evaluation,
-                        shifted.params,
-                        // on success
-                        function () {
-                            teaseNextWorker.call(that, done);
-                        },
-                        // on fail
-                        function (error) {
-                            teaseFailsListeners.call(that, error);
-                            teaseNextWorker.call(that, done);
-                        }
-                    );
-                } catch (e) {
-                    teaseFailsListeners.call(this, e);
-                    teaseNextWorker.call(this, done);
-                }
-            } else {
-                this.queue.shift();
-                teaseNextWorker.call(this, done);
-            }
-        } else {
-            // unlock worker
-            this.locked = false;
-
-            done.call(root);
-            triggerQueuedWorkers.call(this);
+    var queueWorkerCallback = function (pe, callback) {
+        if (typeof callback === 'function') {
+            pe.$callbacks.push(callback);
         }
     };
 
     /**
-     * Push to masker array content array only if content array is not empty
-     * @param {Array} to - master array
-     * @param {Array} collection - content array
-     * @returns {boolean} - success status
+     * @param {Pe} pe
      */
-    var pushNotEmpty = function (to, collection) {
-        if (collection.length > 0) {
-            to.push(collection);
-            return true;
+    var triggerWorkerCallbacks = function (pe) {
+        var callback;
+        while (callback = pe.$callbacks.shift()) {
+            callback();
+        }
+    };
+
+    /**
+     * @param {Pe} pe
+     * @param {Function} [done]
+     * @scope {Pe}
+     */
+    var teaseWorker = function (pe, done) {
+        // check if worker is not locked
+        // locked means that it is currently awake and working
+        if (pe.isLocked()) {
+            // save callback for later trigger
+            queueWorkerCallback(pe, done);
+            return;
         }
 
-        return false;
+        // check if queue is not empty
+        if (pe.$processing.length > 0) {
+            lockStack(pe);
+            var shifted = pe.$processing.shift();
+            try {
+                /**
+                 * on worker success
+                 */
+                var onSuccess = function () {
+                    triggerNextWorker(pe, done);
+                };
+
+                /**
+                 * on worker fail
+                 * @param error
+                 */
+                var onFail = function (error) {
+                    triggerFailsListeners(pe, error);
+                    triggerNextWorker(pe, done);
+                };
+
+                // trigger evaluation
+                triggerWorkerProcess(shifted, onSuccess, onFail);
+            } catch (e) {
+                triggerFailsListeners(pe, e);
+                triggerNextWorker(pe, done);
+            }
+        } else {
+            unlockStack(pe);
+            if (typeof done === 'function') {
+                done();
+            }
+
+            triggerWorkerCallbacks(pe);
+        }
+    };
+
+    /**
+     * @param {Pe} pe
+     */
+    var lockStack = function (pe) {
+        pe.$locked = true;
+    };
+
+    /**
+     * @param {Pe} pe
+     */
+    var unlockStack = function (pe) {
+        pe.$locked = false;
+    };
+
+    /**
+     * @param {Pe} pe
+     */
+    var closeStack = function (pe) {
+        pe.$closed = true;
+    };
+
+    /**
+     * @param {Pe} pe
+     * @throw {StackClosedError}
+     */
+    var checkStackAvailability = function (pe) {
+        if (pe.$closed) {
+            throw new StackClosedError();
+        }
+    };
+
+    /**
+     * @param {Pe} pe
+     * @param {Array} params
+     */
+    var queueStackParams = function (pe, params) {
+        pe.$stack.push({params: params});
+    };
+
+    /**
+     * @param {Pe} pe
+     * @param {Function} worker
+     * @returns {number} - stack worker index
+     */
+    var queueStackWorker = function (pe, worker) {
+        pe.$workers.push(worker);
+        return pe.$workers.length - 1;
+    };
+
+    /**
+     * @param {Pe} pe
+     * @param {Array} collection
+     */
+    var mergeProcessingQueue = function (pe, collection) {
+        collection.forEach(function (process) {
+            pe.$processing.push(process);
+        });
+    };
+
+    /**
+     * @param {Pe} pe
+     */
+    var createEventsListeners = function (pe) {
+        return {
+            /**
+             * @param {Function} callback
+             * @returns {Pe}
+             */
+            fail: function (callback) {
+                validateCallback(callback);
+                // check if callback is not already in list
+                if (pe.$fails.indexOf(callback) === -1) {
+                    pe.$fails.push(callback);
+                }
+
+                return pe;
+            }
+        };
     };
 
     /**
      * Promise Evaluation
      * @name Pe
+     * @property {boolean} $closed
+     * @property {boolean} $locked
+     * @property {Array} $stack
+     * @property {Array} $workers
+     * @property {Function[]} $fails
+     * @property {Array.<{worker: Function, params: Array}>} $processing
+     * @property {Function[]} $callbacks
+     * @property {{fail: Function}} on
      * @throws {ReferenceError}
      * @constructor
      */
@@ -212,27 +288,92 @@
             throw new ReferenceError();
         }
 
-        // collection for evaluator params
-        this.stack = [];
-        // collection for evaluators
-        this.evaluations = [];
-        // worker queue
-        this.queue = [];
-        // worker status
-        this.locked = false;
-        // triggers list of callbacks
-        // when you tease worker when it is locked then your callback saves here
-        // when worker is free it triggers all callbacks and cleans this this
-        // this way teaseWorker will always trigger done callback
-        this.triggers = [];
-        // closed stack becomes after adding finish method
-        this.closed = false;
-        // list of fails reporter
-        this.fails = [];
+        var $$on = createEventsListeners(this);
+
+        var $stack = [];
+        var $workers = [];
+        var $processing = [];
+        var $callbacks = [];
+        var $fails = [];
+        var $closed = false;
+        var $locked = false;
+
+        Object.defineProperties(this, {
+            // stack is a property in which we store params that have to be
+            // evaluated with passed evaluations
+            $stack: {
+                writable: false,
+                value: $stack
+            },
+            // workers are storage for callbacks what does all the work
+            // @todo implement workers not only callbacks but web-workers too
+            $workers: {
+                writable: false,
+                value: $workers
+            },
+            // processing is queue from we workers
+            $processing: {
+                writable: false,
+                value: $processing
+            },
+            // callbacks is a storage for worker notice callbacks which attack when worker
+            // is locked and triggers after worker is unlocked
+            $callbacks: {
+                writable: false,
+                value: $callbacks
+            },
+            // fails callback list
+            $fails: {
+                writable: false,
+                value: $fails
+            },
+            // closed defined stack status
+            // if stack is closed this means its done its jobs and will not do anything else
+            $closed: {
+                enumerable: true,
+                get: function () {
+                    return $closed;
+                },
+                set: function (value) {
+                    // check if value type is valid
+                    if (typeof value !== 'boolean') {
+                        throw new TypeError();
+                    }
+                    // check if stack is not closed
+                    // if stack is closed, if so do not allow to change stack status
+                    if ($closed === false) {
+                        $closed = value;
+                    }
+                }
+            },
+            // stack gets locked when stack is currently preforming jobs
+            // when stack is not doing any jobs it get unlocked
+            $locked: {
+                enumerable: true,
+                get: function () {
+                    return $locked;
+                },
+                set: function (value) {
+                    // check if value type is valid
+                    if (typeof value !== 'boolean') {
+                        throw new TypeError();
+                    }
+                    // set locked value
+                    $locked = value;
+                }
+            },
+            // on is for custom events like on worker fail
+            on: {
+                enumerable: true,
+                get: function () {
+                    return $$on;
+                }
+            }
+        });
     }
 
     /**
-     * @param {...*} data
+     * @param {...*}
      */
     Pe.stackFromArray = function () {
         var stack = new Pe();
@@ -252,28 +393,16 @@
          * @throw {StackClosedError}
          */
         push: function (data) {
-            validateStackClosed.call(this);
+            checkStackAvailability(this);
 
-            // collect all params
-            data = [].slice.call(arguments);
-            this.stack.push({params: data});
-
-            // make evaluations collections from every evaluation
-            // and push them to worker queue
-            var status = false;
-            this.evaluations.forEach(function (value, key) {
-                if (pushNotEmpty(this.queue, makeEvaluationCollection.call(this, key))) {
-                    status = true;
-                }
-            }, this);
-
-            // check if we have work for worker
-            if (status) {
-                // tease worker to start preforming actions
-                teaseWorker.call(this, function () {
-                    // this callback if empty for future purposes
-                });
-            }
+            // collect all params from arguments
+            data = Array.prototype.slice.call(arguments);
+            // queue params to stack
+            queueStackParams(this, data);
+            // create jobs collection for all worker
+            createJobsCollectionAll(this);
+            // tease worker to start preforming actions
+            teaseWorker(this);
 
             return this;
         },
@@ -289,21 +418,14 @@
          */
         evaluate: function (fn) {
             validateCallback(fn);
-            validateStackClosed.call(this);
+            checkStackAvailability(this);
 
             // push evaluator to stack with mode sync
-            this.evaluations.push(fn);
-            // get current index of inserted evaluation
-            var index = this.evaluations.length - 1;
-
+            var index = queueStackWorker(this, fn);
             // push to worker queue
-            // and check if we have work for worker
-            if (pushNotEmpty(this.queue, makeEvaluationCollection.call(this, index))) {
-                // tease worker to start preforming actions
-                teaseWorker.call(this, function () {
-                    // this callback if empty for future purposes
-                });
-            }
+            mergeProcessingQueue(this, createJobsCollection(this, index));
+            // tease worker to start preforming actions
+            teaseWorker(this);
 
             return this;
         },
@@ -312,15 +434,14 @@
          * Listener for fails
          * When evaluation fails this method callback fn will be called
          *
+         * @deprecated
          * @param {Function} fn
          * @returns {Pe}
          */
         'catch': function (fn) {
             validateCallback(fn);
-            // check if this callback is not pushed already
-            if (this.fails.indexOf(fn) === -1) {
-                this.fails.push(fn);
-            }
+            // reference to ne new way for fail listening
+            this.on.fail(fn);
 
             return this;
         },
@@ -336,11 +457,9 @@
         finish: function (fn) {
             validateCallback(fn);
             // close stack
-            this.closed = true;
+            closeStack(this);
             // listen for worker done event
-            teaseWorker.call(this, function () {
-                fn();
-            });
+            teaseWorker(this, fn);
         },
 
         /**
@@ -350,7 +469,7 @@
          * @returns {boolean}
          */
         isLocked: function () {
-            return this.locked;
+            return this.$locked;
         },
 
         /**
@@ -360,7 +479,7 @@
          * @returns {boolean}
          */
         isClosed: function () {
-            return this.closed;
+            return this.$closed;
         }
     };
 
