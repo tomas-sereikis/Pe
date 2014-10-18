@@ -1,6 +1,6 @@
 {
     "name": "pe",
-    "version": "0.0.1",
+    "version": "0.0.4",
     "homepage": "https://github.com/Tomas-Sereikis/Pe",
     "authors": [
         "Tomas-Sereikis <tomas.sereikis@gmail.com>"
@@ -9,7 +9,8 @@
     "main": "src/pe.js",
     "keywords": [
         "pe",
-        "promiseevaluation",
+        "promise",
+        "evaluation",
         "queue",
         "worker",
         "async"
