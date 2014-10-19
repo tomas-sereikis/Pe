@@ -12,6 +12,8 @@
     "eqnull": false,
     "browser": true,
     "globals": {
-        "angular": true
+        "module": true,
+        "define": true,
+        "Pe": true
     }
 }

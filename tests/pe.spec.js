@@ -49,6 +49,16 @@ describe('Pe', function () {
         expect(function () { stack.$closed = 1; }).toThrow();
     });
 
+    it('should check if $closed variable can be set to false after setting true', function () {
+        var stack = new Pe();
+        stack.$closed = true;
+        expect(stack.$closed).toBe(true);
+        expect(stack.isClosed()).toBe(true);
+        stack.$closed = false;
+        expect(stack.$closed).toBe(true);
+        expect(stack.isClosed()).toBe(true);
+    });
+
     it('should check if $locked can set not boolean variable', function () {
         var stack = new Pe();
         expect(function () { stack.$locked = 1; }).toThrow();
@@ -417,19 +427,5 @@ describe('Pe', function () {
 
                 done();
             });
-    });
-
-    it('should check if noConflict Pe is working', function () {
-        var $Pe = Pe.noConflict();
-        var stack = new $Pe();
-        var results = 0;
-
-        stack
-            .push(1)
-            .evaluate(function (num) {
-                results = num;
-            });
-
-        expect(results).toBe(1);
     });
 });

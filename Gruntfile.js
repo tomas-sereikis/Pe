@@ -5,6 +5,22 @@ module.exports = function (grunt) {
                 configFile: 'karma.conf.js'
             }
         },
+        concat: {
+            options: {
+                process: function (src) {
+                    return src.replace(/\/\* BUILD REMOVE \*\/(.*)(\r?\n)?/g, '');
+                }
+            },
+            library: {
+                src: [
+                    './src/.prefix',
+                    './src/pe.js',
+                    './src/define.js',
+                    './src/.suffix'
+                ],
+                dest: './dist/pe.js'
+            }
+        },
         uglify: {
             library: {
                 options: {
@@ -13,7 +29,7 @@ module.exports = function (grunt) {
                 },
                 files: {
                     './dist/pe.min.js': [
-                        './src/pe.js'
+                        './dist/pe.js'
                     ]
                 }
             }
@@ -22,7 +38,7 @@ module.exports = function (grunt) {
             options: {
                 jshintrc: '.jshintrc'
             },
-            all: ['src/pe.js']
+            all: ['src/**/*.js']
         },
         coveralls: {
             options: {
@@ -36,10 +52,11 @@ module.exports = function (grunt) {
 
     grunt.loadNpmTasks('grunt-karma');
     grunt.loadNpmTasks('grunt-contrib-uglify');
+    grunt.loadNpmTasks('grunt-contrib-concat');
     grunt.loadNpmTasks('grunt-contrib-jshint');
     grunt.loadNpmTasks('grunt-karma-coveralls');
 
     grunt.registerTask('test', ['jshint', 'karma']);
-    grunt.registerTask('build', ['test', 'uglify']);
+    grunt.registerTask('build', ['test', 'concat', 'uglify']);
     grunt.registerTask('travis', ['test', 'coveralls']);
 };

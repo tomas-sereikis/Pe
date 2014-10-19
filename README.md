@@ -201,6 +201,40 @@ Pe.stackFromArray(1, 3, 5, 6)
     });
 ```
 
+###### Case 5
+
+You can see real working example in `examples/case5/run.js`
+
+Using Pe with node is possible. Lets say we what to create function which concats files content to one string.
+
+```javascript
+var fs = require('fs');
+// not yet registered to npm
+var Pe = require('../../dist/pe.js');
+
+var collection = [];
+var stack = new Pe()
+    .push('./read/test1.txt') // content: Lorem ipsum
+    .push('./read/test2.txt') // content: dolor sit amet
+    .push('./read/test3.txt') // content: consectetur adipiscing elit
+    .evaluate(function (filename) {
+        var done = this.async();
+        fs.readFile(filename, function (err, data) {
+            if (err) return;
+            
+            collection.push(data.toString());
+            done();
+        });
+    })
+    .finish(function () {
+        // output:
+        // Lorem ipsum
+        // dolor sit amet
+        // consectetur adipiscing elit
+        console.log(collection.join("\n"));
+    });
+```
+
 Have questions if `Pe` would work in your case? Ask!
 
 ### Todo
@@ -210,6 +244,7 @@ Have questions if `Pe` would work in your case? Ask!
 * Integrate async worker call. Now workers is called synced so if you do not move your worker callback content async it will lock your frame. Method call implementation `.async.evaluate(function () { ...`
 
 ### Changes
+* **0.0.5** - (future release) added new build strategy. Full Pe uncompressed file moved to dist folder.
 * **0.0.4** - code refactoring, method `catch()` is deprecated use `.on.fail()` instead. README todo added.
 * **0.0.3** - added `catch()` method for evaluations that fail, added `Pe.stackFromArray(...)` which created Pe instance form arguments.
 * **0.0.2** - added `finish()` method.
